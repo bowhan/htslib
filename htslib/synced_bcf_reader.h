@@ -148,6 +148,7 @@ typedef struct bcf_sr_t
     bcf1_t **buffer;                // cached VCF records. First is the current record synced across the reader
     int nbuffer, mbuffer;           // number of cached records (including the current record); number of allocated records
     int nfilter_ids, *filter_ids;   // -1 for ".", otherwise filter id as returned by bcf_hdr_id2int
+    int nfilter_ids2, *filter_ids2; // (bowhan) filters used to exclude
     int *samples, n_smpl;   // list of columns in the order consistent with bcf_srs_t.samples
 }
 bcf_sr_t;
@@ -168,6 +169,7 @@ typedef struct bcf_srs_t
                             // initialization, that is during the add_reader()
                             // calls. Therefore, each reader can be initialized with different
                             // filters.
+    char *filter_on_filters; // (bowhan): if set, sites with any of the FILTER strings listed will be discarded
     int require_index;  // Some tools do not need random access
     int max_unpack;     // When reading VCFs and knowing some fields will not be needed, boost performance of vcf_parse1
     int *has_line;      // Corresponds to return value of bcf_sr_next_line but is not limited by sizeof(int). Use bcf_sr_has_line macro to query.

@@ -366,6 +366,8 @@ int bcf_sr_add_reader(bcf_srs_t *files, const char *fname)
     if ( files->apply_filters )
         reader->filter_ids = init_filters(reader->header, files->apply_filters, &reader->nfilter_ids);
 
+    if ( files->filter_on_filters )
+        reader->filter_ids2 = init_filters(reader->header, files->filter_on_filters, &reader->nfilter_ids2);
     // Update list of chromosomes
     if ( !files->explicit_regs && !files->streaming )
     {
@@ -440,6 +442,7 @@ static void bcf_sr_destroy1(bcf_sr_t *reader)
     free(reader->buffer);
     free(reader->samples);
     free(reader->filter_ids);
+    free(reader->filter_ids2);
 }
 
 void bcf_sr_destroy(bcf_srs_t *files)
@@ -512,6 +515,23 @@ static inline int has_filter(bcf_sr_t *reader, bcf1_t *line)
     {
         for (j=0; j<reader->nfilter_ids; j++)
             if ( line->d.flt[i]==reader->filter_ids[j] ) return 1;
+    }
+    return 0;
+}
+
+static inline int has_filter2(bcf_sr_t *reader, bcf1_t *line)
+{
+    int i, j;
+    if ( !line->d.n_flt )
+    {
+        for (j=0; j<reader->nfilter_ids2; j++)
+            if ( reader->filter_ids2[j]<0 ) return 1;
+        return 0;
+    }
+    for (i=0; i<line->d.n_flt; i++)
+    {
+        for (j=0; j<reader->nfilter_ids2; j++)
+            if ( line->d.flt[i]==reader->filter_ids2[j] ) return 1;
     }
     return 0;
 }
@@ -694,13 +714,15 @@ static int _reader_fill_buffer(bcf_srs_t *files, bcf_sr_t *reader)
         }
 
         // apply filter
-        if ( !reader->nfilter_ids )
+        if ( !reader->nfilter_ids && !reader->nfilter_ids2 )
             bcf_unpack(reader->buffer[reader->nbuffer+1], BCF_UN_STR);
         else
         {
             bcf_unpack(reader->buffer[reader->nbuffer+1], BCF_UN_STR|BCF_UN_FLT);
-            if ( !has_filter(reader, reader->buffer[reader->nbuffer+1]) ) continue;
+            if ( reader->nfilter_ids  && !has_filter(reader, reader->buffer[reader->nbuffer+1]) ) continue;
+            if ( reader->nfilter_ids2 && has_filter2(reader, reader->buffer[reader->nbuffer+1]) ) continue;
         }
+
         reader->nbuffer++;
 
         if ( reader->buffer[reader->nbuffer]->rid != reader->buffer[1]->rid ) break;
